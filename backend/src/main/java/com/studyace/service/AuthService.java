@@ -1,5 +1,11 @@
 package com.studyace.service;
 
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+
 import com.studyace.dto.AuthRequest;
 import com.studyace.dto.AuthResponse;
 import com.studyace.dto.RegisterRequest;
@@ -8,11 +14,8 @@ import com.studyace.entity.User;
 import com.studyace.exception.ApiException;
 import com.studyace.repository.UserRepository;
 import com.studyace.security.JwtService;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
@@ -41,9 +44,13 @@ public class AuthService {
     }
 
     public AuthResponse login(AuthRequest request) {
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
-        );
+        try {
+            authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
+            );
+        } catch (BadCredentialsException | org.springframework.security.core.userdetails.UsernameNotFoundException e) {
+            throw new ApiException("Invalid credentials");
+        }
 
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new ApiException("Invalid credentials"));

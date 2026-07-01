@@ -21,7 +21,16 @@ export default function LoginPage() {
       sessionService.saveSession(data.user, data.token)
       navigate('/dashboard')
     } catch (err) {
-      setError(err.response?.data?.message || 'Login failed')
+      const errorData = err.response?.data
+      if (errorData?.errors) {
+        // Format field-level validation errors
+        const fieldErrors = Object.entries(errorData.errors)
+          .map(([field, message]) => `${field}: ${message}`)
+          .join(' | ')
+        setError(fieldErrors)
+      } else {
+        setError(errorData?.message || 'Login failed')
+      }
     } finally {
       setIsSubmitting(false)
     }
@@ -33,7 +42,7 @@ export default function LoginPage() {
         <h1 className="text-xl font-semibold">Welcome Back</h1>
         <Input label="Email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
         <Input label="Password" type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required />
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded text-sm text-red-700 dark:text-red-400">{error}</div>}
         <Button type="submit" className="w-full" disabled={isSubmitting}>{isSubmitting ? 'Signing in...' : 'Login'}</Button>
         <p className="text-sm text-gray-600 dark:text-gray-300">No account? <Link className="text-indigo-600" to="/register">Create one</Link></p>
       </form>
