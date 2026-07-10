@@ -1,0 +1,33 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  @apply bg-gray-50 text-gray-900;
+}
+
+@keyframes landing-card-rise {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.landing-card {
+  animation: landing-card-rise 420ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-card {
+    animation: none;
+  }
+}

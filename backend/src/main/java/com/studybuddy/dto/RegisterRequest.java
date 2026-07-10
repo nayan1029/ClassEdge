@@ -1,0 +1,28 @@
+package com.studybuddy.dto;
+
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+import lombok.Getter;
+import lombok.Setter;
+
+@Getter
+@Setter
+public class RegisterRequest {
+
+    @NotBlank(message = "Name is required")
+    @Size(min = 2, max = 50, message = "Name must be between 2 and 50 characters")
+    private String name;
+
+    @Email(message = "Please provide a valid email address")
+    @NotBlank(message = "Email is required")
+    private String email;
+
+    @NotBlank(message = "Password is required")
+    @Size(min = 6, max = 100, message = "Password must be between 6 and 100 characters")
+    private String password;
+
+    // "STUDENT" or "TEACHER" only — ADMIN is never self-assignable at signup.
+    // Defaults to STUDENT if omitted or invalid.
+    private String role;
+}
