@@ -77,10 +77,6 @@ All four tools route through a single configurable AI service layer — swap bet
 
 ## Running Locally
 
-### Prerequisites
-- Java 21 + Maven
-- Node.js 18+
-
 ### Backend (zero-config — uses H2 in-memory DB)
 
 ```bash
