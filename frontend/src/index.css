@@ -7,7 +7,11 @@ html, body, #root {
 }
 
 body {
-  @apply bg-teal-50 text-black;
+  @apply bg-slate-50 text-slate-900;
+}
+
+.dark body {
+  @apply bg-slate-950 text-slate-100;
 }
 
 @keyframes landing-card-rise {

@@ -1,212 +1,123 @@
-import React, { useState } from 'react'
+import React, { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import Card from '../components/common/Card'
-import FlashCard from '../components/common/FlashCard'
-import Loader from '../components/common/Loader'
 import { dashboardApi } from '../api/dashboardApi'
+import { classroomApi } from '../api/classroomApi'
+import { timetableApi } from '../api/timetableApi'
+import api from '../services/http'
+import { sessionService } from '../services/session'
+import Loader from '../components/common/Loader'
+import FlashCard from '../components/common/FlashCard'
 import {
-  BookOpen,
-  CheckSquare,
-  BrainCircuit,
-  Clock,
-  TrendingUp,
-  Zap,
-  Star,
-  Target,
-  ChevronLeft,
-  ChevronRight,
+  ArrowUpRight, Bell, BookOpen, Bot, BrainCircuit, CalendarDays, CheckSquare,
+  ChevronLeft, ChevronRight, ClipboardList, FileText, GraduationCap,
+  LayoutDashboard, Sparkles, Users, Library, MessageCircle, CalendarCheck,
 } from 'lucide-react'
 
-const STUDY_CARDS = [
-  {
-    subject: 'Data Structures',
-    question: 'What is the time complexity of Binary Search?',
-    answer: 'O(log n) – Binary Search halves the search space each iteration.',
-    color: 'bg-teal-600',
-  },
-  {
-    subject: 'Algorithms',
-    question: 'What does Big-O notation represent?',
-    answer: 'It describes the worst-case growth rate of an algorithm\'s time or space usage relative to input size.',
-    color: 'bg-red-800',
-  },
-  {
-    subject: 'Database',
-    question: 'What is a Primary Key?',
-    answer: 'A column (or set of columns) that uniquely identifies every row in a table. Must be unique and NOT NULL.',
-    color: 'bg-indigo-700',
-  },
-  {
-    subject: 'Networks',
-    question: 'What is the OSI Model?',
-    answer: '7-layer framework: Physical, Data Link, Network, Transport, Session, Presentation, Application.',
-    color: 'bg-amber-700',
-  },
-  {
-    subject: 'OOP',
-    question: 'What are the 4 pillars of OOP?',
-    answer: 'Encapsulation, Abstraction, Inheritance, Polymorphism.',
-    color: 'bg-emerald-700',
-  },
+const studyCards = [
+  { subject: 'Data Structures', question: 'What is the time complexity of Binary Search?', answer: 'O(log n): each step halves the remaining search space.', color: 'bg-blue-600' },
+  { subject: 'Algorithms', question: 'What does Big O notation describe?', answer: 'How an algorithm’s time or space use grows as the input gets larger.', color: 'bg-violet-600' },
+  { subject: 'Databases', question: 'What is a primary key?', answer: 'A column, or set of columns, that uniquely identifies each row in a table.', color: 'bg-emerald-600' },
 ]
 
-const STAT_CONFIG = [
-  { key: 'completedTasks', label: 'Tasks Done', icon: CheckSquare, color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200' },
-  { key: 'notesCount',    label: 'Notes',      icon: BookOpen,     color: 'text-blue-600',    bg: 'bg-blue-50',    border: 'border-blue-200'    },
-  { key: 'quizAttempts',  label: 'Quiz Runs',  icon: BrainCircuit, color: 'text-purple-600',  bg: 'bg-purple-50',  border: 'border-purple-200'  },
-  { key: 'focusHours',    label: 'Focus Hrs',  icon: Clock,        color: 'text-amber-600',   bg: 'bg-amber-50',   border: 'border-amber-200'   },
+const modules = [
+  { label: 'My Classes', to: '/classes', icon: Users, tint: 'blue' },
+  { label: 'Assignments', to: '/classes', icon: ClipboardList, tint: 'violet' },
+  { label: 'Study Assistant', to: '/assistant', icon: Bot, tint: 'cyan' },
+  { label: 'Quiz Generator', to: '/quiz', icon: BrainCircuit, tint: 'amber' },
+  { label: 'Notes Library', to: '/notes', icon: BookOpen, tint: 'green' },
+  { label: 'Timetable', to: '/timetable', icon: CalendarDays, tint: 'rose' },
+  { label: 'Library', to: '/library', icon: Library, tint: 'blue' },
+  { label: 'Class Chat', to: '/communication', icon: MessageCircle, tint: 'cyan' },
+  { label: 'Attendance', to: '/attendance', icon: CalendarCheck, tint: 'amber' },
+  { label: 'Lesson Plans', to: '/lesson-plans', icon: FileText, tint: 'violet' },
 ]
 
-const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-const BARS = [40, 65, 45, 80, 70, 90, 60]
+const tintClasses = {
+  blue: 'bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-300',
+  violet: 'bg-violet-50 text-violet-600 dark:bg-violet-500/10 dark:text-violet-300',
+  cyan: 'bg-cyan-50 text-cyan-600 dark:bg-cyan-500/10 dark:text-cyan-300',
+  amber: 'bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-300',
+  green: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-300',
+  rose: 'bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-300',
+}
 
-const QUICK_LINKS = [
-  { label: 'Start Quiz', icon: BrainCircuit, to: '/quiz', color: 'bg-purple-600 hover:bg-purple-700' },
-  { label: 'Add Note',   icon: BookOpen,     to: '/notes', color: 'bg-blue-600 hover:bg-blue-700'    },
-  { label: 'My Tasks',   icon: CheckSquare,  to: '/tasks', color: 'bg-emerald-600 hover:bg-emerald-700' },
-  { label: 'Focus',      icon: Zap,          to: '/timetable', color: 'bg-amber-600 hover:bg-amber-700' },
-]
+function Panel({ title, action, children, className = '' }) {
+  return <section className={`rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 ${className}`}>
+    <div className="mb-4 flex items-center justify-between gap-3"><h2 className="font-semibold text-slate-900 dark:text-white">{title}</h2>{action}</div>{children}
+  </section>
+}
 
 export default function DashboardPage() {
-  const { data, isLoading } = useQuery({ queryKey: ['dashboard'], queryFn: dashboardApi.fetchDashboard })
-  const [cardIdx, setCardIdx] = useState(0)
+  const user = sessionService.getUser()
+  const [cardIndex, setCardIndex] = useState(0)
+  const [calendarMonth, setCalendarMonth] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1))
+  const { data: dashboard, isLoading: dashboardLoading } = useQuery({ queryKey: ['dashboard'], queryFn: dashboardApi.fetchDashboard })
+  const { data: classrooms = [], isLoading: classesLoading } = useQuery({ queryKey: ['classrooms'], queryFn: classroomApi.list })
+  const isTeacher = user?.role === 'TEACHER'
+  const { data: timetable = [] } = useQuery({ queryKey: ['timetable'], queryFn: timetableApi.get })
+  const { data: teacherMetrics = {} } = useQuery({
+    queryKey: ['dashboard-teacher-metrics', classrooms.map((item) => item.id)],
+    enabled: isTeacher && classrooms.length > 0,
+    queryFn: async () => {
+      const assignmentsByClass = await Promise.all(classrooms.map((room) => classroomApi.listAssignments(room.id)))
+      const assignments = assignmentsByClass.flat()
+      const submissions = await Promise.all(assignments.map((item) => classroomApi.listSubmissions(item.id)))
+      const leaveRequests = (await api.get('/school/leave-requests')).data
+      return {
+        studentCount: classrooms.reduce((sum, room) => sum + (room.memberCount || 0), 0),
+        pendingGrading: submissions.flat().filter((item) => item.status === 'SUBMITTED').length,
+        pendingLeave: leaveRequests.filter((item) => item.status === 'PENDING').length,
+      }
+    },
+  })
+  const stats = dashboard?.stats || {}
+  const myClasses = useMemo(() => classrooms.slice(0, 4), [classrooms])
+  const todaysSessions = timetable.filter((row) => row.day?.toLowerCase() === new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase())
+  const card = studyCards[cardIndex]
 
-  if (isLoading) return <Loader text="Loading dashboard" />
+  if (dashboardLoading || classesLoading) return <Loader text="Preparing your learning dashboard" />
 
-  const stats = data?.stats || {
-    completedTasks: 12,
-    notesCount: 18,
-    quizAttempts: 9,
-    focusHours: 26,
-  }
+  const statCards = [
+    { label: isTeacher ? "Today's study sessions" : 'My classes', value: isTeacher ? todaysSessions.length : (stats.classCount ?? classrooms.length), icon: GraduationCap, tint: 'blue', hint: 'Learning spaces' },
+    { label: isTeacher ? 'Student count' : 'Assignments', value: isTeacher ? (teacherMetrics.studentCount ?? classrooms.reduce((sum, room) => sum + (room.memberCount || 0), 0)) : (stats.assignmentCount ?? '—'), icon: isTeacher ? Users : ClipboardList, tint: 'violet', hint: isTeacher ? 'Across your classes' : 'Across your classes' },
+    { label: isTeacher ? 'To grade' : 'Tasks completed', value: isTeacher ? (teacherMetrics.pendingGrading ?? '—') : (stats.completedTasks ?? 0), icon: CheckSquare, tint: 'green', hint: isTeacher ? 'Student submissions' : `${stats.pendingTasks ?? 0} still in progress` },
+    { label: isTeacher ? 'Leave requests' : 'Study notes', value: isTeacher ? (teacherMetrics.pendingLeave ?? '—') : (stats.notesCount ?? 0), icon: isTeacher ? CalendarDays : BookOpen, tint: 'amber', hint: isTeacher ? 'Awaiting your review' : 'Saved in your library' },
+  ]
 
-  const card = STUDY_CARDS[cardIdx]
+  return <div className="space-y-5 pb-8 text-slate-900 dark:text-slate-100">
+    <header className="flex flex-wrap items-center justify-between gap-4">
+      <div><p className="text-sm font-medium text-blue-600 dark:text-blue-300">ClassEdge learning workspace</p><h1 className="mt-1 text-2xl font-bold tracking-tight md:text-3xl">{isTeacher ? 'Teacher Dashboard' : 'Student Dashboard'}</h1><p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Your classes, assignments, and study tools in one place.</p></div>
+      <div className="flex items-center gap-2"><button aria-label="Notifications" className="relative rounded-xl border border-slate-200 bg-white p-2.5 text-slate-500 dark:border-slate-800 dark:bg-slate-900"><Bell size={18}/><span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-blue-500"/></button><Link to="/profile" className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white py-1.5 pl-1.5 pr-3 dark:border-slate-800 dark:bg-slate-900"><span className="grid h-8 w-8 place-items-center rounded-lg bg-blue-600 text-sm font-semibold text-white">{user?.name?.charAt(0) || 'S'}</span><span className="text-left"><span className="block text-xs font-semibold">{user?.name || 'Student'}</span><span className="block text-[10px] text-slate-500">{isTeacher ? 'Teacher' : 'Student'}</span></span></Link></div>
+    </header>
 
-  return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-black">Smart Dashboard</h1>
-          <p className="text-gray-500 text-sm mt-1">Your learning hub at a glance</p>
-        </div>
-        <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 px-4 py-2 rounded-xl">
-          <Star className="text-amber-500" size={16} />
-          <span className="text-sm font-semibold text-amber-700">7-day streak!</span>
-        </div>
-      </div>
+    <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-blue-700 via-blue-600 to-cyan-500 p-6 text-white shadow-lg shadow-blue-900/10 md:p-8">
+      <div className="relative z-10 max-w-2xl"><div className="mb-3 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-medium"><Sparkles size={14}/> Your learning, organized</div><h2 className="text-2xl font-bold md:text-3xl">Good day, {user?.name?.split(' ')[0] || (isTeacher ? 'Teacher' : 'Student')} <span aria-hidden="true">✦</span></h2><p className="mt-2 max-w-lg text-sm leading-6 text-blue-50">{classrooms.length ? `You’re connected to ${classrooms.length} ${classrooms.length === 1 ? 'class' : 'classes'}. Pick up where you left off.` : 'Create a class or join one with a class code to get started.'}</p><Link to={isTeacher ? '/classes' : '/classes'} className="mt-5 inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-blue-700 shadow-sm transition hover:bg-blue-50">View my classes <ArrowUpRight size={16}/></Link></div>
+      <div className="pointer-events-none absolute -right-5 -top-20 h-64 w-64 rounded-full border-[32px] border-white/10 md:right-12 md:top-[-100px] md:h-80 md:w-80"/><div className="pointer-events-none absolute bottom-[-100px] right-48 h-48 w-48 rounded-full bg-cyan-300/20 blur-2xl"/>
+    </div>
 
-      {/* Stat Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {STAT_CONFIG.map(({ key, label, icon: Icon, color, bg, border }) => (
-          <div
-            key={key}
-            className={`${bg} ${border} border rounded-2xl p-5 flex flex-col gap-3 hover:shadow-md transition-shadow`}
-          >
-            <div className={`w-10 h-10 rounded-xl ${bg} flex items-center justify-center`}>
-              <Icon className={color} size={22} />
-            </div>
-            <div>
-              <p className={`text-3xl font-bold ${color}`}>{stats[key]}</p>
-              <p className="text-xs text-gray-500 font-medium mt-0.5">{label}</p>
-            </div>
-          </div>
-        ))}
-      </div>
+    <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">{statCards.map(({ label, value, icon: Icon, tint, hint }) => <div key={label} className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900"><div className="flex items-start justify-between"><div><p className="text-xs font-medium text-slate-500 dark:text-slate-400">{label}</p><p className="mt-2 text-2xl font-bold">{value}</p></div><span className={`grid h-10 w-10 place-items-center rounded-xl ${tintClasses[tint]}`}><Icon size={19}/></span></div><p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">{hint}</p></div>)}</div>
 
-      {/* Middle row: FlashCard + Quick Actions */}
-      <div className="grid lg:grid-cols-2 gap-6">
-        {/* Daily Flash Card */}
-        <Card title="📚 Daily Flash Card">
-          <div className="flex items-center justify-between mb-3">
-            <span className={`text-xs font-bold text-white px-3 py-1 rounded-full ${card.color}`}>
-              {card.subject}
-            </span>
-            <div className="flex gap-1 items-center">
-              <button
-                onClick={() => setCardIdx((i) => (i - 1 + STUDY_CARDS.length) % STUDY_CARDS.length)}
-                className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors"
-              >
-                <ChevronLeft size={16} />
-              </button>
-              <span className="text-xs text-gray-400">{cardIdx + 1}/{STUDY_CARDS.length}</span>
-              <button
-                onClick={() => setCardIdx((i) => (i + 1) % STUDY_CARDS.length)}
-                className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors"
-              >
-                <ChevronRight size={16} />
-              </button>
-            </div>
-          </div>
-          <FlashCard
-            className="h-48"
-            frontClass={`${card.color} text-white shadow-lg`}
-            backClass="bg-white border-2 border-teal-200 text-black shadow-lg"
-            front={
-              <p className="text-center text-lg font-semibold leading-snug">{card.question}</p>
-            }
-            back={
-              <p className="text-center text-base leading-relaxed">{card.answer}</p>
-            }
-          />
-          <p className="text-center text-xs text-gray-400 mt-2">Click the card to reveal the answer</p>
-        </Card>
+    <div className="grid gap-5 xl:grid-cols-[1.4fr_0.9fr_0.8fr]">
+      <Panel title="Quick access" action={<span className="text-xs text-slate-400">Your study tools</span>}>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">{modules.map(({ label, to, icon: Icon, tint }) => <Link key={label} to={to} className="group rounded-2xl border border-slate-100 p-3 transition hover:border-blue-200 hover:shadow-sm dark:border-slate-800 dark:hover:border-blue-800"><span className={`mb-3 grid h-10 w-10 place-items-center rounded-xl ${tintClasses[tint]}`}><Icon size={19}/></span><span className="block text-xs font-semibold">{label}</span><span className="mt-1 block text-[10px] text-slate-400">Open tool <ArrowUpRight className="inline" size={12}/></span></Link>)}</div>
+      </Panel>
+      <Panel title="Daily study card" action={<div className="flex items-center gap-1"><button aria-label="Previous card" onClick={() => setCardIndex((cardIndex + studyCards.length - 1) % studyCards.length)} className="rounded-md p-1 hover:bg-slate-100 dark:hover:bg-slate-800"><ChevronLeft size={16}/></button><span className="text-[10px] text-slate-400">{cardIndex + 1}/{studyCards.length}</span><button aria-label="Next card" onClick={() => setCardIndex((cardIndex + 1) % studyCards.length)} className="rounded-md p-1 hover:bg-slate-100 dark:hover:bg-slate-800"><ChevronRight size={16}/></button></div>}>
+        <span className="mb-2 inline-flex rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-semibold text-blue-700 dark:bg-blue-500/10 dark:text-blue-300">{card.subject}</span><FlashCard className="h-36" frontClass={`${card.color} text-white`} backClass="border border-blue-100 bg-blue-50 text-slate-800 dark:border-slate-700 dark:bg-slate-800 dark:text-white" front={<p className="px-4 text-center text-sm font-semibold">{card.question}</p>} back={<p className="px-4 text-center text-sm">{card.answer}</p>}/><p className="mt-2 text-center text-[10px] text-slate-400">Select the card to reveal the answer</p>
+      </Panel>
+      <Panel title="Study assistant" className="bg-gradient-to-b from-violet-50 to-white dark:from-violet-950/30 dark:to-slate-900"><span className="grid h-11 w-11 place-items-center rounded-2xl bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-300"><Bot size={22}/></span><h3 className="mt-4 text-sm font-semibold">Need help with a topic?</h3><p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">Ask a question, get an explanation, or make a quick revision plan.</p><Link to="/assistant" className="mt-4 inline-flex items-center gap-2 rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white hover:bg-violet-700">Chat with assistant <ArrowUpRight size={14}/></Link></Panel>
+    </div>
 
-        {/* Quick Actions */}
-        <Card title="⚡ Quick Actions">
-          <div className="grid grid-cols-2 gap-3">
-            {QUICK_LINKS.map(({ label, icon: Icon, to, color }) => (
-              <a
-                key={label}
-                href={to}
-                className={`${color} text-white rounded-xl p-4 flex flex-col items-center gap-2 transition-colors font-semibold text-sm shadow-sm hover:shadow-md`}
-              >
-                <Icon size={24} />
-                {label}
-              </a>
-            ))}
-          </div>
-        </Card>
-      </div>
-
-      {/* Weekly Chart + Tips */}
-      <div className="grid lg:grid-cols-3 gap-6">
-        {/* Productivity Chart */}
-        <Card title="📈 Weekly Productivity" className="lg:col-span-2">
-          <div className="flex items-end gap-2 h-36 pt-2">
-            {BARS.map((height, i) => (
-              <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                <div className="w-full flex flex-col justify-end" style={{ height: '120px' }}>
-                  <div
-                    className="w-full bg-teal-600 rounded-t-md hover:bg-teal-500 transition-colors cursor-pointer"
-                    style={{ height: `${height}%` }}
-                    title={`${height}% productivity`}
-                  />
-                </div>
-                <span className="text-[10px] text-gray-400 font-medium">{DAYS[i]}</span>
-              </div>
-            ))}
-          </div>
-        </Card>
-
-        {/* Study Tips */}
-        <Card title="💡 Study Tips">
-          <ul className="space-y-3 text-sm text-black">
-            {[
-              { icon: Target, tip: 'Break sessions into 25-min Pomodoro blocks.' },
-              { icon: TrendingUp, tip: 'Review notes within 24h to boost retention.' },
-              { icon: Zap, tip: 'Quiz yourself before re-reading material.' },
-            ].map(({ icon: Icon, tip }, i) => (
-              <li key={i} className="flex gap-3 items-start">
-                <div className="mt-0.5 w-6 h-6 rounded-md bg-teal-100 flex items-center justify-center flex-shrink-0">
-                  <Icon size={13} className="text-teal-700" />
-                </div>
-                <span>{tip}</span>
-              </li>
-            ))}
-          </ul>
-        </Card>
+    <div className="grid gap-5 xl:grid-cols-[1.1fr_0.9fr_0.72fr]">
+      <Panel title="My classes" action={<Link to="/classes" className="text-xs font-semibold text-blue-600 hover:text-blue-700">View all</Link>}>
+        {myClasses.length ? <div className="grid gap-3 sm:grid-cols-2">{myClasses.map((item) => <Link key={item.id} to={`/classes/${item.id}`} className="flex items-center gap-3 rounded-xl border border-slate-100 p-3 hover:border-blue-200 dark:border-slate-800 dark:hover:border-blue-800"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-300"><BookOpen size={18}/></span><span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold">{item.name}</span><span className="block truncate text-xs text-slate-500">{[item.subject, item.section].filter(Boolean).join(' · ') || 'Class workspace'}</span></span><ArrowUpRight size={15} className="text-slate-400"/></Link>)}</div> : <div className="rounded-xl border border-dashed border-slate-200 px-4 py-8 text-center dark:border-slate-700"><p className="text-sm font-medium">No classes yet</p><p className="mt-1 text-xs text-slate-500">Join a class or create one to see your classroom activity here.</p><Link to="/classes" className="mt-3 inline-flex text-xs font-semibold text-blue-600">Go to classes <ArrowUpRight size={13}/></Link></div>}
+      </Panel>
+      <div className="space-y-5">
+        <Panel title="Calendar" action={<div className="flex gap-1"><button aria-label="Previous month" onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1))}><ChevronLeft size={16}/></button><button aria-label="Next month" onClick={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1))}><ChevronRight size={16}/></button></div>}>
+          <p className="mb-3 text-center text-sm font-semibold">{calendarMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</p><div className="grid grid-cols-7 gap-y-2 text-center text-[10px] text-slate-400">{['S','M','T','W','T','F','S'].map((day, index) => <span key={`${day}-${index}`} className="py-1 font-semibold">{day}</span>)}{Array.from({ length: new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), 1).getDay() }, (_, index) => <span key={`empty-${index}`}/>)}{Array.from({ length: new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 0).getDate() }, (_, index) => { const day = index + 1; const now = new Date(); const selected = day === now.getDate() && calendarMonth.getMonth() === now.getMonth() && calendarMonth.getFullYear() === now.getFullYear(); return <span key={day} className={`mx-auto grid h-7 w-7 place-items-center rounded-full ${selected ? 'bg-blue-600 font-bold text-white' : 'text-slate-600 dark:text-slate-300'}`}>{day}</span> })}</div>
+        </Panel>
+        <Panel title="Today's study plan" action={<Link to="/timetable" className="text-[10px] font-semibold text-blue-600">View timetable</Link>}><div className="space-y-2">{todaysSessions.length ? todaysSessions.map((row) => <div key={row.id || `${row.day}-${row.subject}`} className="rounded-xl border border-slate-100 p-3 dark:border-slate-800"><p className="text-[10px] font-semibold text-blue-600">{row.time || row.slot}</p><p className="mt-1 text-xs font-semibold">{row.subject}</p><p className="mt-0.5 text-[10px] text-slate-500">{row.focus || 'Study session'}</p></div>) : <p className="py-4 text-center text-xs text-slate-500">No sessions planned for today.</p>}</div></Panel>
       </div>
     </div>
-  )
+  </div>
 }

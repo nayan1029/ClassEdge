@@ -23,9 +23,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.classedge.dto.AssistantRequest;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AiService {
 
     private static final String CHAT_SYSTEM_PROMPT = """
@@ -87,6 +89,17 @@ public class AiService {
 
     public Map<String, Object> summarize(String text) {
         String cleanText = normalize(text);
+        if (isGeminiSelected() && !geminiApiKey.isBlank()) {
+            Optional<Map<String, Object>> generated = invokeGeminiJson(
+                    "Summarize the following study material. Return JSON with a concise string field 'summary' and an array of 3 to 6 concise string 'keyPoints'.\n\n" + cleanText);
+            if (generated.isPresent() && generated.get().get("summary") != null) {
+                Map<String, Object> result = new HashMap<>(generated.get());
+                result.put("summary", String.valueOf(result.get("summary")));
+                result.put("keyPoints", stringList(result.get("keyPoints")));
+                result.put("provider", "gemini");
+                return result;
+            }
+        }
         List<String> sentences = splitSentences(cleanText);
         String summary = sentences.stream()
                 .limit(3)
@@ -113,9 +126,24 @@ public class AiService {
             level = "medium";
         }
 
+        if (isGeminiSelected() && !geminiApiKey.isBlank()) {
+            Optional<Map<String, Object>> generated = invokeGeminiJson(
+                    "Create a 5-question " + level + " difficulty quiz about " + safeTopic
+                            + ". Return JSON with fields topic, difficulty, and questions. Each question must have type (MCQ or Short), question, answer, and for MCQ exactly four options. Do not add any text outside the JSON object.");
+            if (generated.isPresent() && generated.get().get("questions") instanceof List<?> questions && !questions.isEmpty()) {
+                Map<String, Object> result = new HashMap<>(generated.get());
+                result.put("topic", safeTopic);
+                result.put("difficulty", level);
+                result.put("questions", questions);
+                result.put("provider", "gemini");
+                return result;
+            }
+        }
+
         return Map.of(
                 "topic", safeTopic,
                 "difficulty", level,
+                "provider", "local-ai-fallback",
                 "questions", List.of(
                         Map.of(
                                 "type", "MCQ",
@@ -138,24 +166,35 @@ public class AiService {
         );
     }
 
-    public Map<String, Object> analyzeResume(String content) {
-        String resume = normalize(content);
-        int score = Math.min(95, Math.max(60, resume.length() / 20));
-        List<String> suggestions = new ArrayList<>();
-        suggestions.add("Use quantified impact statements for projects and internships.");
-        suggestions.add("Add role-specific keywords from the target job description.");
-        suggestions.add("Keep the summary concise and focused on strengths.");
-        if (!resume.toLowerCase().contains("github")) {
-            suggestions.add("Include a GitHub or portfolio link for technical proof.");
+    public Map<String, Object> draftLessonPlan(String title, String subject, String classLevel) {
+        String safeTitle = normalize(title);
+        String safeSubject = normalize(subject);
+        String safeLevel = normalize(classLevel);
+        if (isGeminiSelected() && !geminiApiKey.isBlank()) {
+            Optional<Map<String, Object>> generated = invokeGeminiJson(
+                    "Draft a practical lesson plan. Topic: " + safeTitle + ". Subject: " + safeSubject
+                            + ". Class level: " + safeLevel
+                            + ". Return JSON with string 'objectives' and Markdown string 'content'. Include a short lesson sequence, activity, materials, and an assessment. Keep it classroom-ready.");
+            if (generated.isPresent() && generated.get().get("content") != null) {
+                return Map.of("objectives", String.valueOf(generated.get().getOrDefault("objectives", "")),
+                        "content", String.valueOf(generated.get().get("content")), "provider", "gemini");
+            }
         }
-        if (!resume.matches("(?is).*\\b(sql|mysql|postgres|mongodb)\\b.*")) {
-            suggestions.add("Mention relevant database skills when they match your experience.");
-        }
+        String topic = safeTitle.isBlank() ? "the selected topic" : safeTitle;
+        return Map.of("objectives", "Students will explain the key ideas in " + topic + " and apply them to a short example.",
+                "content", "## Lesson sequence\\n1. Introduce " + topic + " and connect it to prior learning.\\n2. Model the core idea with a worked example.\\n3. Have students practise in pairs and discuss their reasoning.\\n\\n## Materials\\nUse the relevant class notes and one worked example.\\n\\n## Check for understanding\\nAsk students to solve one independent example and explain their answer.",
+                "provider", "local-ai-fallback");
+    }
 
-        return Map.of(
-                "score", score,
-                "suggestions", suggestions
-        );
+    public Map<String, Object> providerStatus() {
+        String selected = normalize(aiProvider).toLowerCase();
+        String effective = "openai".equals(selected) || (!"gemini".equals(selected) && !openAiApiKey.isBlank())
+                ? "openai"
+                : "gemini".equals(selected) || !geminiApiKey.isBlank() ? "gemini" : "local-fallback";
+        boolean configured = "gemini".equals(effective) ? !geminiApiKey.isBlank()
+                : "openai".equals(effective) && !openAiApiKey.isBlank();
+        return Map.of("configured", configured, "provider", effective,
+                "model", "gemini".equals(effective) ? geminiModel : "openai".equals(effective) ? openAiModel : "none");
     }
 
     public Map<String, Object> answerQuestion(AssistantRequest request) {
@@ -401,6 +440,7 @@ public class AiService {
 
             HttpResponse<java.util.stream.Stream<String>> response = httpClient.send(request, HttpResponse.BodyHandlers.ofLines());
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                logGeminiFailure(response.statusCode(), "stream request failed");
                 return false;
             }
 
@@ -437,12 +477,15 @@ public class AiService {
             });
 
             return wroteAny[0];
-        } catch (IOException | InterruptedException exception) {
-            if (exception instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
-            }
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            log.warn("Gemini streaming request was interrupted");
+            return false;
+        } catch (IOException exception) {
+            log.warn("Gemini streaming request failed: {}", exception.getClass().getSimpleName());
             return false;
         } catch (RuntimeException exception) {
+            log.warn("Gemini streaming request failed: {}", exception.getClass().getSimpleName());
             return false;
         }
     }
@@ -551,6 +594,7 @@ public class AiService {
 
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                logGeminiFailure(response.statusCode(), response.body());
                 return Optional.empty();
             }
 
@@ -571,12 +615,75 @@ public class AiService {
             Map<?, ?> firstPart = (Map<?, ?>) parts.get(0);
             String text = firstPart == null ? null : String.valueOf(firstPart.get("text"));
             return parseStructuredAssistantResponse(text).or(() -> Optional.of(defaultResponse(text)));
-        } catch (IOException | InterruptedException exception) {
+        } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
+            log.warn("Gemini request was interrupted");
+            return Optional.empty();
+        } catch (IOException exception) {
+            log.warn("Gemini request failed: {}", exception.getClass().getSimpleName());
             return Optional.empty();
         } catch (RuntimeException exception) {
+            log.warn("Gemini response could not be processed: {}", exception.getClass().getSimpleName());
             return Optional.empty();
         }
+    }
+
+    private Optional<Map<String, Object>> invokeGeminiJson(String prompt) {
+        try {
+            Map<String, Object> payload = Map.of(
+                    "contents", List.of(Map.of("role", "user", "parts", List.of(Map.of("text", prompt)))),
+                    "generationConfig", Map.of("temperature", 0.5, "responseMimeType", "application/json")
+            );
+            String endpoint = "https://generativelanguage.googleapis.com/v1beta/models/" + geminiModel
+                    + ":generateContent?key=" + geminiApiKey;
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(endpoint))
+                    .timeout(Duration.ofSeconds(45))
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(payload)))
+                    .build();
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                logGeminiFailure(response.statusCode(), response.body());
+                return Optional.empty();
+            }
+            Map<String, Object> body = objectMapper.readValue(response.body(), new TypeReference<>() {});
+            List<?> candidates = (List<?>) body.get("candidates");
+            if (candidates == null || candidates.isEmpty()) return Optional.empty();
+            Map<?, ?> candidate = (Map<?, ?>) candidates.get(0);
+            Map<?, ?> content = (Map<?, ?>) candidate.get("content");
+            List<?> parts = content == null ? null : (List<?>) content.get("parts");
+            if (parts == null || parts.isEmpty()) return Optional.empty();
+            String generated = String.valueOf(((Map<?, ?>) parts.get(0)).get("text"));
+            return Optional.of(objectMapper.readValue(generated, new TypeReference<>() {}));
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            log.warn("Gemini request was interrupted");
+            return Optional.empty();
+        } catch (IOException exception) {
+            log.warn("Gemini request failed: {}", exception.getClass().getSimpleName());
+            return Optional.empty();
+        } catch (RuntimeException exception) {
+            log.warn("Gemini response could not be processed: {}", exception.getClass().getSimpleName());
+            return Optional.empty();
+        }
+    }
+
+    private boolean isGeminiSelected() {
+        String provider = normalize(aiProvider).toLowerCase();
+        return "gemini".equals(provider)
+                || (!"openai".equals(provider) && openAiApiKey.isBlank() && !geminiApiKey.isBlank());
+    }
+
+    private List<String> stringList(Object value) {
+        if (!(value instanceof List<?> items)) return List.of();
+        return items.stream().filter(item -> item != null).map(String::valueOf).limit(10).toList();
+    }
+
+    private void logGeminiFailure(int status, String responseBody) {
+        String details = responseBody == null ? "" : responseBody.replaceAll("[\\r\\n\\t]+", " ").trim();
+        if (details.length() > 500) details = details.substring(0, 500);
+        log.warn("Gemini API returned HTTP {}: {}", status, details);
     }
 
     private List<Map<String, String>> buildOpenAiMessages(String prompt, List<AssistantRequest.ChatMessage> history) {

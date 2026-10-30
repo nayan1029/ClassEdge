@@ -6,6 +6,9 @@
 /backend/.project
 *.log
 *.jar
+.env
+.env.*
+!.env.example
 
 # Node
 /frontend/node_modules/

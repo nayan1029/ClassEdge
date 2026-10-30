@@ -20,8 +20,14 @@ const AssistantPage = lazy(() => import('../pages/AssistantPage'))
 const QuizPage = lazy(() => import('../pages/QuizPage'))
 const TasksPage = lazy(() => import('../pages/TasksPage'))
 const TimetablePage = lazy(() => import('../pages/TimetablePage'))
+const LibraryPage = lazy(() => import('../pages/LibraryPage'))
+const CommunicationPage = lazy(() => import('../pages/CommunicationPage'))
+const AttendancePage = lazy(() => import('../pages/AttendancePage'))
+const LeavePage = lazy(() => import('../pages/LeavePage'))
+const FeesPage = lazy(() => import('../pages/FeesPage'))
+const StudentsPage = lazy(() => import('../pages/StudentsPage'))
+const LessonPlansPage = lazy(() => import('../pages/LessonPlansPage'))
 
-const ResumeAnalyzerPage = lazy(() => import('../pages/ResumeAnalyzerPage'))
 const ProfilePage = lazy(() => import('../pages/ProfilePage'))
 const NotFoundPage = lazy(() => import('../pages/NotFoundPage'))
 
@@ -56,8 +62,14 @@ export default function AppRoutes() {
           <Route path="/quiz" element={<QuizPage />} />
           <Route path="/tasks" element={<TasksPage />} />
           <Route path="/timetable" element={<TimetablePage />} />
+          <Route path="/library" element={<LibraryPage />} />
+          <Route path="/communication" element={<CommunicationPage />} />
+          <Route path="/attendance" element={<AttendancePage />} />
+          <Route path="/leave" element={<LeavePage />} />
+          <Route path="/fees" element={<FeesPage />} />
+          <Route path="/students" element={<StudentsPage />} />
+          <Route path="/lesson-plans" element={<LessonPlansPage />} />
 
-          <Route path="/resume" element={<ResumeAnalyzerPage />} />
           <Route path="/profile" element={<ProfilePage />} />
         </Route>
 

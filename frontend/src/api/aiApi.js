@@ -10,10 +10,6 @@ export const aiApi = {
     const { data } = await api.post('/ai/summarize', payload)
     return data
   },
-  analyzeResume: async (payload) => {
-    const { data } = await api.post('/ai/resume/analyze', payload)
-    return data
-  },
   // Streams the assistant's reply as it's generated. onChunk is called with each
   // new piece of text (already appended is the caller's job — this just delivers
   // deltas). Uses fetch + ReadableStream directly instead of axios, since axios

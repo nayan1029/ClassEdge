@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   BookOpen, BrainCircuit, CheckSquare, CalendarDays,
-  FileText, Bot, Briefcase, User, ArrowRight, Zap,
+  FileText, Bot, User, ArrowRight, Zap,
 } from 'lucide-react'
 
 const FEATURES = [
@@ -12,7 +12,6 @@ const FEATURES = [
   { icon: CheckSquare, color: 'bg-emerald-600', title: 'Task Manager',       desc: 'Track deadlines and get colour-coded urgency alerts automatically.' },
   { icon: CalendarDays,color: 'bg-amber-600',   title: 'Timetable',          desc: 'Build a weekly study schedule and visualise your focus time.' },
   { icon: Bot,         color: 'bg-red-800',     title: 'AI Assistant',       desc: 'Chat with a study companion that knows your subject material.' },
-  { icon: Briefcase,   color: 'bg-indigo-600',  title: 'Resume Analyser',    desc: 'Upload your CV and get instant feedback & improvement tips.' },
   { icon: User,        color: 'bg-pink-600',    title: 'Student Profile',    desc: 'Analytics on your learning streak, quiz score trends, and more.' },
 ]
 
@@ -68,7 +67,7 @@ export default function LandingPage() {
             <span className="text-red-800">Smarter</span> Learning
           </h1>
           <p className="text-gray-700 text-lg mb-8 max-w-md">
-            Your all-in-one AI study companion. Notes, quizzes, tasks, timetables, and resume coaching — in one beautiful app.
+            Your all-in-one school workspace for classes, learning materials, assignments, communication, and study tools.
           </p>
           <div className="flex gap-3 flex-wrap">
             <Link

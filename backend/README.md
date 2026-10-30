@@ -10,7 +10,11 @@ ClassEdge backend provides secure REST APIs, JWT + Google OAuth2 authentication,
 - Quiz + summarizer + assistant APIs backed by Gemini/OpenAI (`/api/quiz`, `/api/ai/*`)
 - Dashboard analytics API (`/api/analytics/dashboard`)
 - Timetable API, persisted per user (`/api/timetable`)
-- Study rooms with persisted membership + chat history, plus WebRTC signaling relay (`/api/rooms`, `/ws/chat`)
+- Class lesson plans, attendance records, and role-checked classroom rosters
+- Teacher-published learning library (`/api/library/modules`), read-only for students
+- Authenticated, persisted realtime class chat (`/api/classrooms/{id}/messages`, `/ws/chat`)
+- Student leave requests with teacher review and admin-managed fee records (`/api/school/**`)
+- Gemini/OpenAI assistant, summarizer, and quiz generation (`/api/ai/**`, `/api/quiz/**`)
 - Swagger/OpenAPI at `/swagger-ui.html`
 
 ## Tech Stack

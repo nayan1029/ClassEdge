@@ -10,6 +10,7 @@ import java.util.Optional;
 
 public interface ClassroomMembershipRepository extends JpaRepository<ClassroomMembership, Long> {
     List<ClassroomMembership> findAllByStudentOrderByJoinedAtDesc(User student);
+    List<ClassroomMembership> findAllByStudent(User student);
     List<ClassroomMembership> findAllByClassroomOrderByJoinedAtAsc(Classroom classroom);
     Optional<ClassroomMembership> findByClassroomAndStudent(Classroom classroom, User student);
     boolean existsByClassroomAndStudent(Classroom classroom, User student);

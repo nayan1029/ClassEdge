@@ -39,6 +39,10 @@
 - **Classwork tab** — teacher creates assignments with points and due dates; students see submission status and grade inline
 - **People tab** — full roster with role badges
 - Assignment detail page: students submit text answers; teachers see all submissions and grade with feedback
+- Classroom operations: teachers create lesson plans, mark attendance, and review student leave requests
+- Shared learning library: teachers upload materials and students read or download them
+- Realtime classroom chat with persisted message history
+- Fee records: students view assigned balances and admins manage fee records
 
 ### 🤖 AI Tools (Gemini / OpenAI)
 | Tool | What it does |
@@ -46,9 +50,8 @@
 | **Study Assistant** | Conversational AI chatbot for any study question; streaming responses |
 | **Notes Summarizer** | Upload PDF or PPT → get a structured AI-generated summary |
 | **Quiz Generator** | Specify a topic and question count → receive a complete quiz with answers |
-| **Resume Analyzer** | Paste your resume text → get AI feedback on strengths, gaps, and improvements |
-
-All four tools route through a single configurable AI service layer — swap between Gemini and OpenAI with one environment variable.
+| **AI Lesson Planner** | Draft lesson objectives and a teachable class plan, then review it before publishing |
+The Study Assistant, Summarizer, Quiz Generator, and AI Lesson Planner use the configured provider, with local fallback behavior when a provider is unavailable.
 
 ### ✅ Task Manager
 - Create tasks with a title and deadline
@@ -107,7 +110,7 @@ VITE_API_BASE_URL=http://localhost:8080/api
 
 These features degrade gracefully — the app runs normally without them; only the specific feature stays inactive.
 
-### AI features (Study Assistant, Summarizer, Quiz, Resume Analyzer)
+### AI features (Study Assistant, Summarizer, Quiz, Lesson Planner)
 
 ```
 AI_PROVIDER=gemini
@@ -116,6 +119,16 @@ GEMINI_API_KEY=your_gemini_key
 AI_PROVIDER=openai
 OPENAI_API_KEY=your_openai_key
 ```
+
+These variables must be set in the environment of the **backend process** before Spring Boot starts. Spring Boot does not load a `.env` file automatically. In PowerShell, for example:
+
+```powershell
+$env:AI_PROVIDER = 'gemini'
+$env:GEMINI_API_KEY = 'your_gemini_key'
+mvn -f backend/pom.xml spring-boot:run
+```
+
+With an authenticated session, `GET http://localhost:8080/api/ai/status` reports the selected provider, model, and whether its key was loaded (it never returns the key). Gemini API errors are written to the backend log. Summarizer, quiz generation, and lesson-plan drafting use Gemini when configured; they otherwise report `provider: local-ai-fallback` in their response.
 
 ### Email (verification + password reset)
 
@@ -219,9 +232,15 @@ Key endpoint groups:
 | `/api/tasks` | Task CRUD |
 | `/api/notes` | Notes CRUD |
 | `/api/timetable` | Generate and fetch timetable |
-| `/api/ai/**` | Study assistant, summarizer, resume analyzer |
+| `/api/ai/**` | Study assistant, summarizer, AI provider status |
 | `/api/quiz` | AI quiz generation |
 | `/api/classrooms/**` | Classroom and membership management |
+| `/api/classrooms/{id}/attendance` | Teacher attendance marking and student attendance view |
+| `/api/classrooms/{id}/lesson-plans` | Teacher plans and class member reading |
+| `/api/classrooms/{id}/messages` and `/ws/chat` | Persisted realtime classroom chat |
+| `/api/library/modules` | Teacher module uploads and student downloads |
+| `/api/school/leave-requests` | Student leave requests and class teacher review |
+| `/api/school/fees` | Student fee view and admin fee management |
 | `/api/classrooms/{id}/announcements` | Classroom stream |
 | `/api/assignments/**` | Assignment and submission management |
 | `/api/analytics/dashboard` | Dashboard stats |

@@ -58,7 +58,9 @@ export default function RegisterPage() {
           .join(' | ')
         setError(fieldErrors)
       } else {
-        setError(errorData?.message || 'Registration failed')
+        setError(errorData?.message || (err.response
+          ? 'Registration failed. Please check your details and try again.'
+          : 'Cannot reach the ClassEdge server. Start the backend at http://localhost:8080 and try again.'))
       }
     } finally {
       setIsSubmitting(false)

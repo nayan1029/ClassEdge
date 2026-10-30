@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -24,14 +25,14 @@ public class AiController {
 
     private final AiService aiService;
 
+    @GetMapping("/status")
+    public Map<String, Object> providerStatus() {
+        return aiService.providerStatus();
+    }
+
     @PostMapping("/summarize")
     public Map<String, Object> summarize(@Valid @RequestBody SummaryRequest request) {
         return aiService.summarize(request.getText());
-    }
-
-    @PostMapping("/resume/analyze")
-    public Map<String, Object> analyzeResume(@RequestBody SummaryRequest request) {
-        return aiService.analyzeResume(request.getText());
     }
 
     @PostMapping("/assistant")
